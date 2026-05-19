@@ -1,0 +1,38 @@
+# Ignore Visual Studio temporary files, build results, and user-specific files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Ignore build output folders
+bin/
+obj/
+
+# Ignore Rider IDE files (jika ada)
+.idea/
+
+# Ignore package directories
+packages/
+*.nupkg
+*.snupkg
+
+# Ignore publish output
+*.publish.xml
+
+# Ignore database / local config files
+*.dbmdl
+*.pdb
+*.log
+
+# Ignore Resharper files (jika dipakai)
+_ReSharper*/
+*.DotSettings.user
+
+# Ignore test results
+TestResults/
+*.trx
+
+# Ignore npm / frontend build output (jika ada)
+node_modules/
+dist/

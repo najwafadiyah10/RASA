@@ -1,0 +1,6 @@
+@RASA_HostAddress = http://localhost:5079
+
+GET {{RASA_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

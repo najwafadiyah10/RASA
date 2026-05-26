@@ -33,6 +33,12 @@ namespace RasaApi.Models
         [Column("photo_url")]
         public string? PhotoUrl { get; set; }
 
+        [Column("is_photo_deleted")]
+        public bool IsPhotoDeleted { get; set; } = false;
+
+        [Column("photo_deleted_at")]
+        public DateTime? PhotoDeletedAt { get; set; }
+
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

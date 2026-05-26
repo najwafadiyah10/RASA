@@ -115,7 +115,9 @@ namespace RasaApi.Controllers
             }
 
             // 4. Hapus alert dari database
-            _context.Set<Alert>().Remove(alert);
+            alert.IsDeleted = true;
+            alert.DeletedAt = DateTime.UtcNow;
+
             await _context.SaveChangesAsync();
 
             // 5. Response berhasil

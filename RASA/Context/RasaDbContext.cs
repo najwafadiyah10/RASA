@@ -10,11 +10,18 @@ namespace RasaApi.Data
         }
 
         public DbSet<User> Users { get; set; } = null!;
-
         public DbSet<Connection> Connections { get; set; } = null!;
         public DbSet<ElderlyLocation> Locations { get; set; } = null!;
         public DbSet<ElderlyActivity> Activities { get; set; } = null!;
         public DbSet<Alert> Alerts { get; set; } = null!;
         public DbSet<EnvironmentRecord> EnvironmentRecords { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Alert>()
+                .HasQueryFilter(alert => !alert.IsDeleted);
+        }
     }
 }

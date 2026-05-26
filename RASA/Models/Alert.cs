@@ -42,5 +42,11 @@ namespace RasaApi.Models
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("is_deleted")]
+        public bool IsDeleted { get; set; } = false;
+
+        [Column("deleted_at")]
+        public DateTime? DeletedAt { get; set; }
     }
 }

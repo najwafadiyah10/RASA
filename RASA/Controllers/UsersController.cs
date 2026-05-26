@@ -64,7 +64,7 @@ namespace RasaApi.Controllers
                     email = user.Email,
                     phone = user.Phone,
                     role = user.Role,
-                    photo_url = user.PhotoUrl,
+                    photo_url = user.IsPhotoDeleted ? null : user.PhotoUrl,
                     created_at = user.CreatedAt
                 }
             });
@@ -135,7 +135,7 @@ namespace RasaApi.Controllers
                     email = user.Email,
                     phone = user.Phone,
                     role = user.Role,
-                    photo_url = user.PhotoUrl,
+                    photo_url = user.IsPhotoDeleted ? null : user.PhotoUrl,
                     created_at = user.CreatedAt
                 }
             });
@@ -257,6 +257,8 @@ namespace RasaApi.Controllers
             string photoUrl = $"{supabaseUrl}/storage/v1/object/public/{bucket}/{storagePath}";
 
             user.PhotoUrl = photoUrl;
+            user.IsPhotoDeleted = false;
+            user.PhotoDeletedAt = null;
 
             await _context.SaveChangesAsync();
 
@@ -270,7 +272,7 @@ namespace RasaApi.Controllers
                     email = user.Email,
                     phone = user.Phone,
                     role = user.Role,
-                    photo_url = user.PhotoUrl,
+                    photo_url = user.IsPhotoDeleted ? null : user.PhotoUrl,
                     created_at = user.CreatedAt
                 }
             });
@@ -278,7 +280,6 @@ namespace RasaApi.Controllers
         [HttpDelete("profile/photo")]
         public async Task<IActionResult> DeleteProfilePhoto()
         {
-            // 1. Ambil user id dari token
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             if (string.IsNullOrEmpty(userId))
@@ -291,7 +292,6 @@ namespace RasaApi.Controllers
 
             Guid id = Guid.Parse(userId);
 
-            // 2. Cari user
             User? user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
             if (user == null)
@@ -302,93 +302,25 @@ namespace RasaApi.Controllers
                 });
             }
 
-            // 3. Cek apakah user punya foto
-            if (string.IsNullOrWhiteSpace(user.PhotoUrl))
+            if (string.IsNullOrWhiteSpace(user.PhotoUrl) || user.IsPhotoDeleted)
             {
                 return BadRequest(new
                 {
-                    message = "User belum memiliki foto profil"
+                    message = "User belum memiliki foto profil aktif"
                 });
             }
 
-            // 4. Ambil config Supabase Storage
-            string supabaseUrl = _configuration["SupabaseStorage:Url"] ?? "";
-            string serviceRoleKey = _configuration["SupabaseStorage:ServiceRoleKey"] ?? "";
-            string bucket = _configuration["SupabaseStorage:Bucket"] ?? "";
-
-            if (string.IsNullOrWhiteSpace(supabaseUrl) ||
-                string.IsNullOrWhiteSpace(serviceRoleKey) ||
-                string.IsNullOrWhiteSpace(bucket))
-            {
-                return StatusCode(500, new
-                {
-                    message = "Konfigurasi Supabase Storage belum lengkap"
-                });
-            }
-
-            // 5. Ambil path file dari photo_url
-            // Contoh photo_url:
-            // https://uddubuyrwxltkxxweeot.supabase.co/storage/v1/object/public/profile-photos/users/id/file.jpg
-
-            string publicUrlPrefix = $"{supabaseUrl}/storage/v1/object/public/{bucket}/";
-
-            if (!user.PhotoUrl.StartsWith(publicUrlPrefix))
-            {
-                // Jika photo_url masih versi lokal lama, cukup kosongkan dari database
-                user.PhotoUrl = null;
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = "Foto profil lama berhasil dihapus dari database",
-                    user = new
-                    {
-                        id = user.Id,
-                        name = user.Name,
-                        email = user.Email,
-                        phone = user.Phone,
-                        role = user.Role,
-                        photo_url = user.PhotoUrl,
-                        created_at = user.CreatedAt
-                    }
-                });
-            }
-
-            string storagePath = user.PhotoUrl.Replace(publicUrlPrefix, "");
-
-            // 6. Hapus file dari Supabase Storage
-            var client = _httpClientFactory.CreateClient();
-
-            string deleteUrl = $"{supabaseUrl}/storage/v1/object/{bucket}/{storagePath}";
-
-            var deleteRequest = new HttpRequestMessage(HttpMethod.Delete, deleteUrl);
-            deleteRequest.Headers.Add("apikey", serviceRoleKey);
-            deleteRequest.Headers.Authorization =
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", serviceRoleKey);
-
-            HttpResponseMessage deleteResponse = await client.SendAsync(deleteRequest);
-
-            if (!deleteResponse.IsSuccessStatusCode &&
-                deleteResponse.StatusCode != System.Net.HttpStatusCode.NotFound)
-            {
-                string errorContent = await deleteResponse.Content.ReadAsStringAsync();
-
-                return StatusCode((int)deleteResponse.StatusCode, new
-                {
-                    message = "Gagal menghapus foto dari Supabase Storage",
-                    error = errorContent
-                });
-            }
-
-            // 7. Kosongkan photo_url di database
-            user.PhotoUrl = null;
+            // Soft delete:
+            // Jangan hapus file dari Supabase Storage.
+            // Jangan kosongkan PhotoUrl agar URL lama tetap tersimpan di database.
+            user.IsPhotoDeleted = true;
+            user.PhotoDeletedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
-            // 8. Response
             return Ok(new
             {
-                message = "Foto profil berhasil dihapus",
+                message = "Foto profil berhasil dihapus secara soft delete",
                 user = new
                 {
                     id = user.Id,
@@ -396,7 +328,8 @@ namespace RasaApi.Controllers
                     email = user.Email,
                     phone = user.Phone,
                     role = user.Role,
-                    photo_url = user.PhotoUrl,
+                    photo_url = user.IsPhotoDeleted ? null : user.PhotoUrl,
+                    photo_deleted_at = user.PhotoDeletedAt,
                     created_at = user.CreatedAt
                 }
             });

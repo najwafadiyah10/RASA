@@ -15,5 +15,6 @@ namespace RasaApi.Data
         public DbSet<ElderlyLocation> Locations { get; set; } = null!;
         public DbSet<ElderlyActivity> Activities { get; set; } = null!;
         public DbSet<Alert> Alerts { get; set; } = null!;
+        public DbSet<EnvironmentRecord> EnvironmentRecords { get; set; }
     }
 }

@@ -10,6 +10,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Controller
 builder.Services.AddControllers();
 
+// HttpClient untuk upload foto ke Supabase Storage
+builder.Services.AddHttpClient();
+
 // Database Supabase PostgreSQL
 builder.Services.AddDbContext<RasaDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("SupabaseConnection")));
@@ -87,11 +90,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Kalau foto sudah masuk Supabase Storage, ini tidak wajib.
+// Tapi boleh tetap ada, tidak masalah.
+app.UseStaticFiles();
+
 // Urutannya harus Authentication dulu, baru Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-app.Run();
 app.Run();

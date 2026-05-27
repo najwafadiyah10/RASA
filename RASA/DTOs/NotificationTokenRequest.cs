@@ -1,12 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
-
-namespace RASA.DTOs
+﻿namespace RasaApi.DTOs
 {
-    public class NotificationTokenRequest : Controller
+    public class NotificationTokenRequest
     {
-        public IActionResult Index()
-        {
-            return View();
-        }
+        public string FcmToken { get; set; } = string.Empty;
+
+        public string? DeviceName { get; set; }
     }
 }

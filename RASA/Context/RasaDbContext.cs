@@ -15,6 +15,7 @@ namespace RasaApi.Data
         public DbSet<ElderlyActivity> Activities { get; set; } = null!;
         public DbSet<Alert> Alerts { get; set; } = null!;
         public DbSet<EnvironmentRecord> EnvironmentRecords { get; set; }
+        public DbSet<NotificationToken> NotificationTokens { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

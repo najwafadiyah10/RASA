@@ -7,6 +7,9 @@ using System.Security.Claims;
 
 namespace RasaApi.Controllers
 {
+    /// <summary>
+    /// Manajemen riwayat notifikasi keluarga
+    /// </summary>
     [Route("api/history")]
     [ApiController]
     [Authorize]
@@ -19,6 +22,12 @@ namespace RasaApi.Controllers
             _context = context;
         }
 
+        /// <summary>
+        /// Mengambil riwayat notifikasi alert (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat riwayat notifikasi alert yang diterima.
+        /// </remarks>
         [HttpGet("alerts")]
         public async Task<IActionResult> GetAlertHistory(
             [FromQuery] DateTime? startDate,
@@ -73,6 +82,12 @@ namespace RasaApi.Controllers
 
         }
 
+        /// <summary>
+        /// Menghapus riwayat notifikasi alert secara soft delete (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk menghapus riwayat notifikasi alert miliknya.
+        /// </remarks>
         [HttpDelete("alerts/{alertId}")]
         public async Task<IActionResult> DeleteAlertHistory(Guid alertId)
         {

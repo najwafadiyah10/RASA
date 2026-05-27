@@ -7,6 +7,9 @@ using System.Security.Claims;
 
 namespace RasaApi.Controllers
 {
+    /// <summary>
+    /// Manajemen data dashboard
+    /// </summary>
     [Route("api/dashboard")]
     [ApiController]
     [Authorize]
@@ -19,6 +22,12 @@ namespace RasaApi.Controllers
             _context = context;
         }
 
+        /// <summary>
+        /// Mengambil dashboard lansia (role lansia)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role lansia untuk melihat ringkasan data dashboard miliknya.
+        /// </remarks>
         [HttpGet("elderly")]
         public async Task<IActionResult> GetElderlyDashboard()
         {
@@ -189,6 +198,12 @@ namespace RasaApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Mengambil dashboard keluarga (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat ringkasan data dashboard keluarga.
+        /// </remarks>
         [HttpGet("family")]
         public async Task<IActionResult> GetFamilyDashboard()
         {

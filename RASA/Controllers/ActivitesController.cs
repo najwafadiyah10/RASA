@@ -8,6 +8,9 @@ using System.Security.Claims;
 
 namespace RasaApi.Controllers
 {
+    /// <summary>
+    /// Manajemen data aktivitas lansia
+    /// </summary>
     [Route("api/activities")]
     [ApiController]
     [Authorize]
@@ -20,6 +23,21 @@ namespace RasaApi.Controllers
             _context = context;
         }
 
+        /// <summary>
+        /// Menambahkan/mengirim data aktivitas lansia (role lansia)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role lansia untuk mengirim data aktivitas terbaru.
+        /// Nilai activityStatus yang diperbolehkan:
+        /// - aktif
+        /// - tidak_aktif
+        /// - indikasi_jatuh
+        /// 
+        /// Nilai riskLevel yang diperbolehkan:
+        /// - normal
+        /// - waspada
+        /// - darurat
+        /// </remarks>
         [HttpPost]
         public async Task<IActionResult> CreateActivity([FromBody] ActivityRequest request)
         {
@@ -124,6 +142,15 @@ namespace RasaApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Mengambil data aktivitas terbaru lansia (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat aktivitas terbaru dari lansia yang sudah terhubung.
+        /// Keluarga hanya dapat melihat aktivitas lansia jika koneksi sudah berstatus accepted.
+        ///
+        /// Data yang ditampilkan merupakan aktivitas terbaru berdasarkan waktu createdAt paling baru.
+        /// </remarks>
         [HttpGet("~/api/elderlies/{elderlyId}/activities/latest")]
         [Authorize]
         public async Task<IActionResult> GetLatestActivity(Guid elderlyId)

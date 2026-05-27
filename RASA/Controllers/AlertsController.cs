@@ -8,6 +8,9 @@ using System.Security.Claims;
 
 namespace RasaApi.Controllers
 {
+    /// <summary>
+    /// Manajemen data alert lansia
+    /// </summary>
     [Route("api/alerts")]
     [ApiController]
     [Authorize]
@@ -22,6 +25,18 @@ namespace RasaApi.Controllers
 
         }
 
+        /// <summary>
+        /// Menambahkan/mengirim alert lansia ke keluarga terhubung (role lansia)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role lansia untuk mengirim alert kepada keluarga yang sudah terhubung.
+        /// Alert hanya dapat dikirim jika lansia sudah memiliki koneksi accepted dengan keluarga.
+        /// 
+        /// Nilai riskLevel yang diperbolehkan:
+        ///
+        /// - waspada
+        /// - darurat
+        /// </remarks>
         [HttpPost]
         public async Task<IActionResult> CreateAlert([FromBody] AlertRequest request)
         {
@@ -191,6 +206,14 @@ namespace RasaApi.Controllers
         //    });
         //}
 
+
+        /// <summary>
+        /// Mengambil daftar alert dari lansia tertentu (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat daftar alert dari lansia yang sudah terhubung.
+        /// Keluarga hanya dapat melihat alert jika koneksi dengan lansia sudah berstatus accepted.
+        /// </remarks>
         [HttpGet("~/api/elderlies/{elderlyId}/alerts")]
         public async Task<IActionResult> GetAlertsByElderly(Guid elderlyId)
         {
@@ -271,6 +294,18 @@ namespace RasaApi.Controllers
             return dateTime.ToLocalTime().ToString("HH:mm");
         }
 
+        /// <summary>
+        /// Mengubah status alert menjadi read atau unread (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk mengubah status alert miliknya.
+        /// Alert hanya dapat diubah oleh keluarga yang menerima alert tersebut.
+        ///
+        /// Nilai status yang diperbolehkan:
+        ///
+        /// - read
+        /// - unread
+        /// </remarks>
         [HttpPut("{alertId}")]
         public async Task<IActionResult> UpdateAlertStatus(
     Guid alertId,

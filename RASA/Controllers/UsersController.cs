@@ -9,6 +9,9 @@ using System.Security.Claims;
 
 namespace RasaApi.Controllers
 {
+    /// <summary>
+    /// Manajemen data profil user
+    /// </summary>
     [Route("api/users")]
     [ApiController]
     [Authorize]
@@ -28,6 +31,12 @@ namespace RasaApi.Controllers
             _httpClientFactory = httpClientFactory;
         }
 
+        /// <summary>
+        /// Mengambil data profil user yang sedang login
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan untuk mengambil data profil user berdasarkan token yang sedang digunakan.
+        /// </remarks>
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
@@ -70,6 +79,12 @@ namespace RasaApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Memperbarui data profil user yang sedang login
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan untuk memperbarui data profil user berdasarkan token yang sedang digunakan.
+        /// </remarks>
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
         {
@@ -141,6 +156,12 @@ namespace RasaApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Memperbarui foto profil user yang sedang login
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan untuk mengupload atau memperbarui foto profil user.
+        /// </remarks>
         [HttpPut("profile/photo")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpdateProfilePhoto([FromForm] UpdateProfilePhotoRequest request)
@@ -277,6 +298,13 @@ namespace RasaApi.Controllers
                 }
             });
         }
+
+        /// <summary>
+        /// Menghapus foto profil user secara soft delete
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan untuk menghapus foto profil user yang sedang login secara soft delete.
+        /// </remarks>
         [HttpDelete("profile/photo")]
         public async Task<IActionResult> DeleteProfilePhoto()
         {

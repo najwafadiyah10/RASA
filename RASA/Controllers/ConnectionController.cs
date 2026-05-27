@@ -8,6 +8,9 @@ using System.Security.Claims;
 
 namespace RasaApi.Controllers
 {
+    /// <summary>
+    /// Manajemen koneksi lansia dan keluarga
+    /// </summary>
     [Route("api/connections")]
     [ApiController]
     [Authorize]
@@ -20,6 +23,12 @@ namespace RasaApi.Controllers
             _context = context;
         }
 
+        /// <summary>
+        /// Mengirim permintaan koneksi ke keluarga (role lansia)
+        /// </summary>
+        /// /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role lansia untuk mengirim permintaan koneksi ke akun keluarga berdasarkan email keluarga.
+        /// </remarks>
         [HttpPost]
         public async Task<IActionResult> CreateConnectionRequest([FromBody] ConnectionRequest request)
         {
@@ -68,22 +77,35 @@ namespace RasaApi.Controllers
                 });
             }
 
-            // 5. Cek apakah koneksi sudah pernah dibuat
-            bool connectionExists = await _context.Connections.AnyAsync(c =>
+            // 5. Cek apakah lansia ini sudah punya koneksi aktif / pending
+            bool elderlyAlreadyHasConnection = await _context.Connections.AnyAsync(c =>
                 c.ElderlyId == elderlyId &&
-                c.FamilyId == family.Id &&
-                c.Status != "rejected"
+                (c.Status == "pending" || c.Status == "accepted")
             );
 
-            if (connectionExists)
+            if (elderlyAlreadyHasConnection)
             {
                 return Conflict(new
                 {
-                    message = "Permintaan atau koneksi dengan keluarga ini sudah ada"
+                    message = "Lansia ini sudah memiliki keluarga terhubung atau permintaan yang masih menunggu respon"
                 });
             }
 
-            // 6. Simpan koneksi baru dengan status pending
+            // 6. Cek apakah keluarga tujuan sudah punya lansia aktif / pending
+            bool familyAlreadyHasConnection = await _context.Connections.AnyAsync(c =>
+                c.FamilyId == family.Id &&
+                (c.Status == "pending" || c.Status == "accepted")
+            );
+
+            if (familyAlreadyHasConnection)
+            {
+                return Conflict(new
+                {
+                    message = "Keluarga ini sudah memiliki lansia terhubung atau permintaan yang masih menunggu respon"
+                });
+            }
+
+            // 7. Simpan koneksi baru dengan status pending
             Connection newConnection = new Connection
             {
                 Id = Guid.NewGuid(),
@@ -97,7 +119,7 @@ namespace RasaApi.Controllers
             _context.Connections.Add(newConnection);
             await _context.SaveChangesAsync();
 
-            // 7. Response berhasil
+            // 8. Response berhasil
             return Created("", new
             {
                 message = "Permintaan terhubung berhasil dikirim",
@@ -114,6 +136,12 @@ namespace RasaApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Mengambil daftar permintaan koneksi masuk (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat daftar permintaan koneksi yang masuk dari akun lansia.
+        /// </remarks>
         [HttpGet("incoming")]
         public async Task<IActionResult> GetIncomingRequests()
         {
@@ -168,10 +196,17 @@ namespace RasaApi.Controllers
             });
         }
 
+
+        /// <summary>
+        /// Menerima atau menolak permintaan koneksi (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk menerima atau menolak permintaan koneksi dari lansia.
+        /// </remarks>
         [HttpPut("{connectionId}")]
         public async Task<IActionResult> UpdateConnectionStatus(
-    Guid connectionId,
-    [FromBody] UpdateConnectionStatusRequest request)
+            Guid connectionId,
+            [FromBody] UpdateConnectionStatusRequest request)
         {
             // 1. Ambil user id dan role dari token
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -194,6 +229,14 @@ namespace RasaApi.Controllers
                 });
             }
 
+            if (string.IsNullOrWhiteSpace(request.Status))
+            {
+                return BadRequest(new
+                {
+                    message = "Status wajib diisi"
+                });
+            }
+
             // 3. Validasi status
             string status = request.Status.Trim().ToLower();
 
@@ -208,7 +251,7 @@ namespace RasaApi.Controllers
             Guid familyId = Guid.Parse(userId);
 
             // 4. Cari data koneksi
-            Connection? connection = await _context.Set<Connection>()
+            Connection? connection = await _context.Connections
                 .FirstOrDefaultAsync(c =>
                     c.Id == connectionId &&
                     c.FamilyId == familyId
@@ -231,13 +274,63 @@ namespace RasaApi.Controllers
                 });
             }
 
-            // 6. Update status
+            // 6. Jika keluarga menerima request, validasi aturan 1 keluarga = 1 lansia dan 1 lansia = 1 keluarga
+            if (status == "accepted")
+            {
+                bool elderlyAlreadyAcceptedByOtherFamily = await _context.Connections.AnyAsync(c =>
+                    c.Id != connection.Id &&
+                    c.ElderlyId == connection.ElderlyId &&
+                    c.Status == "accepted"
+                );
+
+                if (elderlyAlreadyAcceptedByOtherFamily)
+                {
+                    return Conflict(new
+                    {
+                        message = "Lansia ini sudah terhubung dengan keluarga lain"
+                    });
+                }
+
+                bool familyAlreadyAcceptedOtherElderly = await _context.Connections.AnyAsync(c =>
+                    c.Id != connection.Id &&
+                    c.FamilyId == familyId &&
+                    c.Status == "accepted"
+                );
+
+                if (familyAlreadyAcceptedOtherElderly)
+                {
+                    return Conflict(new
+                    {
+                        message = "Keluarga ini sudah terhubung dengan lansia lain"
+                    });
+                }
+            }
+
+            // 7. Update status koneksi yang sedang direspon
             connection.Status = status;
             connection.UpdatedAt = DateTime.UtcNow;
 
+            // 8. Kalau request diterima, tolak otomatis request pending lain yang melibatkan lansia/keluarga ini
+            if (status == "accepted")
+            {
+                var otherPendingConnections = await _context.Connections
+                    .Where(c =>
+                        c.Id != connection.Id &&
+                        c.Status == "pending" &&
+                        (c.ElderlyId == connection.ElderlyId || c.FamilyId == connection.FamilyId)
+                    )
+                    .ToListAsync();
+
+                foreach (Connection otherConnection in otherPendingConnections)
+                {
+                    otherConnection.Status = "rejected";
+                    otherConnection.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
             await _context.SaveChangesAsync();
 
-            // 7. Response berhasil
+            // 9. Response berhasil
             return Ok(new
             {
                 message = status == "accepted"
@@ -254,7 +347,12 @@ namespace RasaApi.Controllers
             });
         }
 
-
+        /// <summary>
+        /// Mengambil data lansia yang terhubung (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat data lansia yang sudah terhubung.
+        /// </remarks>
         [HttpGet("elderlies")]
         public async Task<IActionResult> GetConnectedElderlies()
         {
@@ -288,6 +386,7 @@ namespace RasaApi.Controllers
                     on connection.ElderlyId equals elderly.Id
                 where connection.FamilyId == familyId
                       && connection.Status == "accepted"
+                orderby connection.UpdatedAt descending
                 select new
                 {
                     connection_id = connection.Id,
@@ -299,7 +398,7 @@ namespace RasaApi.Controllers
                     status = connection.Status,
                     connected_at = connection.UpdatedAt
                 }
-            ).ToListAsync();
+            ).Take(1).ToListAsync();
 
             // 4. Response
             return Ok(new
@@ -309,7 +408,12 @@ namespace RasaApi.Controllers
             });
         }
 
-
+        /// <summary>
+        /// Mengambil data keluarga yang terhubung (role lansia)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role lansia untuk melihat data keluarga yang sudah terhubung.
+        /// </remarks>
         [HttpGet("families")]
         public async Task<IActionResult> GetConnectedFamilies()
         {

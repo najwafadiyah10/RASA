@@ -13,7 +13,9 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace RasaApi.Controllers
 {
-
+    /// <summary>
+    /// Manajemen autentikasi user
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
@@ -28,11 +30,8 @@ namespace RasaApi.Controllers
         }
 
         /// <summary>
-        /// Register akun baru
+        /// Mendaftarkan akun baru untuk lansia atau keluarga
         /// </summary>
-        /// <remarks>
-        /// Catatan: Endpoint ini membuat akun baru dan mengirim email verifikasi.
-        /// </remarks>
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
@@ -118,6 +117,9 @@ namespace RasaApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Login user dan mendapatkan token JWT
+        /// </summary>
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {

@@ -8,6 +8,9 @@ using System.Security.Claims;
 
 namespace RasaApi.Controllers
 {
+    /// <summary>
+    /// Manajemen data lingkungan lansia
+    /// </summary>
     [Route("api/environment-records")]
     [ApiController]
     [Authorize]
@@ -20,6 +23,26 @@ namespace RasaApi.Controllers
             _context = context;
         }
 
+        /// <summary>
+        /// Menambahkan/mengirim data lingkungan lansia (role lansia)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role lansia untuk mengirim data lingkungan terbaru.
+        /// Nilai airQuality yang diperbolehkan:
+        ///
+        /// - baik
+        /// - sedang
+        /// - buruk
+        ///
+        /// Nilai riskLevel yang diperbolehkan:
+        ///
+        /// - normal
+        /// - waspada
+        /// = darurat
+        ///
+        /// Latitude harus berada pada rentang -90 sampai 90.
+        /// Longitude harus berada pada rentang -180 sampai 180.
+        /// </remarks>
         [HttpPost]
         public async Task<IActionResult> CreateEnvironmentRecord([FromBody] EnvironmentRecordRequest request)
         {
@@ -146,6 +169,13 @@ namespace RasaApi.Controllers
 
 
         }
+
+        /// <summary>
+        /// Mengambil data lingkungan terbaru lansia (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat data lingkungan terbaru dari lansia yang sudah terhubung.
+        /// </remarks>
         [HttpGet("~/api/elderlies/{elderlyId}/environment/latest")]
         public async Task<IActionResult> GetLatestEnvironment(Guid elderlyId)
         {

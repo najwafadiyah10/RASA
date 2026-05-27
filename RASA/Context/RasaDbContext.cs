@@ -22,6 +22,16 @@ namespace RasaApi.Data
 
             modelBuilder.Entity<Alert>()
                 .HasQueryFilter(alert => !alert.IsDeleted);
+
+            modelBuilder.Entity<Connection>()
+                .HasIndex(connection => connection.ElderlyId)
+                .IsUnique()
+                .HasFilter("status IN ('pending', 'accepted')");
+
+            modelBuilder.Entity<Connection>()
+                .HasIndex(connection => connection.FamilyId)
+                .IsUnique()
+                .HasFilter("status IN ('pending', 'accepted')");
         }
     }
 }

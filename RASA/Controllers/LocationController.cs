@@ -8,6 +8,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace RasaApi.Controllers
 {
+    /// <summary>
+    /// Manajemen data lokasi lansia
+    /// </summary>
     [Route("api/locations")]
     [ApiController]
     [Authorize]
@@ -20,6 +23,12 @@ namespace RasaApi.Controllers
             _context = context;
         }
 
+        /// <summary>
+        /// Menambahkan/mengirim data lokasi lansia (role lansia)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role lansia untuk mengirim data lokasi terbaru.
+        /// </remarks>
         [HttpPost]
         public async Task<IActionResult> CreateLocation([FromBody] LocationRequest request)
         {
@@ -93,6 +102,12 @@ namespace RasaApi.Controllers
             });
         }
 
+        /// <summary>
+        /// Mengambil data lokasi terbaru lansia (role keluarga)
+        /// </summary>
+        /// <remarks>
+        /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat lokasi terbaru dari lansia yang sudah terhubung.
+        /// </remarks>
         [HttpGet("~/api/elderlies/{elderlyId}/locations/latest")]
         public async Task<IActionResult> GetLatestLocation(Guid elderlyId)
         {

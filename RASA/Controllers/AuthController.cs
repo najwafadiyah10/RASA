@@ -10,6 +10,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
+using FirebaseAdmin.Auth;
+using Rasa.DTOs;
 
 namespace RasaApi.Controllers
 {
@@ -206,6 +208,151 @@ namespace RasaApi.Controllers
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        [HttpPost("google")]
+        public async Task<IActionResult> GoogleAuth([FromBody] GoogleAuthRequest request)
+        {
+            // 1. Validasi id token dari Firebase
+            if (string.IsNullOrWhiteSpace(request.IdToken))
+            {
+                return BadRequest(new
+                {
+                    message = "ID token Google wajib diisi"
+                });
+            }
+
+            // 2. Validasi role
+            string role = request.Role.Trim().ToLower();
+
+            if (role != "lansia" && role != "keluarga")
+            {
+                return BadRequest(new
+                {
+                    message = "Role harus lansia atau keluarga"
+                });
+            }
+
+            // 3. Validasi nomor HP
+            if (string.IsNullOrWhiteSpace(request.Phone))
+            {
+                return BadRequest(new
+                {
+                    message = "Nomor HP wajib diisi"
+                });
+            }
+
+            FirebaseToken decodedToken;
+
+            try
+            {
+                // 4. Verifikasi token Firebase
+                decodedToken = await FirebaseAuth.DefaultInstance.VerifyIdTokenAsync(request.IdToken);
+            }
+            catch
+            {
+                return Unauthorized(new
+                {
+                    message = "ID token Google tidak valid"
+                });
+            }
+
+            // 5. Ambil data dari token Firebase
+            string firebaseUid = decodedToken.Uid;
+
+            string? email = decodedToken.Claims.ContainsKey("email")
+                ? decodedToken.Claims["email"]?.ToString()
+                : null;
+
+            string? name = decodedToken.Claims.ContainsKey("name")
+                ? decodedToken.Claims["name"]?.ToString()
+                : null;
+
+            string? picture = decodedToken.Claims.ContainsKey("picture")
+                ? decodedToken.Claims["picture"]?.ToString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return BadRequest(new
+                {
+                    message = "Email Google tidak ditemukan"
+                });
+            }
+
+            email = email.Trim().ToLower();
+
+            // 6. Cek apakah user sudah ada
+            User? user = await _context.Users
+                .FirstOrDefaultAsync(u =>
+                    u.FirebaseUid == firebaseUid ||
+                    u.Email == email
+                );
+
+            string authStatus;
+
+            if (user == null)
+            {
+                // 7. Kalau user belum ada, register otomatis
+                user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    Name = string.IsNullOrWhiteSpace(name) ? email : name,
+                    Email = email,
+                    Phone = request.Phone.Trim(),
+                    PasswordHash = null,
+                    Role = role,
+                    PhotoUrl = picture,
+                    AuthProvider = "google",
+                    FirebaseUid = firebaseUid,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Users.Add(user);
+                authStatus = "registered";
+            }
+            else
+            {
+                // 8. Kalau user sudah ada, login
+                user.FirebaseUid ??= firebaseUid;
+                user.AuthProvider = "google";
+
+                if (!string.IsNullOrWhiteSpace(picture) && string.IsNullOrWhiteSpace(user.PhotoUrl))
+                {
+                    user.PhotoUrl = picture;
+                }
+
+                authStatus = "logged_in";
+            }
+
+            await _context.SaveChangesAsync();
+
+            // 9. Buat token JWT RASA
+            string token = GenerateJwtToken(user);
+
+            // 10. Response
+            return Ok(new
+            {
+                message = authStatus == "registered"
+                    ? "Register Google berhasil"
+                    : "Login Google berhasil",
+
+                status = authStatus,
+
+                token,
+
+                user = new
+                {
+                    id = user.Id,
+                    name = user.Name,
+                    email = user.Email,
+                    phone = user.Phone,
+                    role = user.Role,
+                    photo_url = user.PhotoUrl,
+                    auth_provider = user.AuthProvider,
+                    created_at = user.CreatedAt
+                }
+            });
         }
 
         //[Authorize]

@@ -5,6 +5,8 @@ using Microsoft.OpenApi.Models;
 using RasaApi.Data;
 using System.Text;
 using System.Reflection;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -131,6 +133,16 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+
+var firebaseServiceAccountPath = builder.Configuration["Firebase:ServiceAccountPath"];
+
+if (!string.IsNullOrWhiteSpace(firebaseServiceAccountPath) && FirebaseApp.DefaultInstance == null)
+{
+    FirebaseApp.Create(new AppOptions
+    {
+        Credential = GoogleCredential.FromFile(firebaseServiceAccountPath)
+    });
+}
 
 var app = builder.Build();
 

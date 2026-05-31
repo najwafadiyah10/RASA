@@ -24,7 +24,7 @@ namespace RasaApi.Models
 
         [Required]
         [Column("password_hash")]
-        public string PasswordHash { get; set; } = string.Empty;
+        public string? PasswordHash { get; set; }
 
         [Required]
         [Column("role")]
@@ -41,5 +41,11 @@ namespace RasaApi.Models
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("auth_provider")]
+        public string AuthProvider { get; set; } = "local";
+
+        [Column("firebase_uid")]
+        public string? FirebaseUid { get; set; }
     }
 }

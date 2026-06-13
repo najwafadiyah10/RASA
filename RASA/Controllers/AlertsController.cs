@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using RasaApi.Data;
 using RasaApi.DTOs;
 using RasaApi.Models;
+using RasaApi.Services;
 using System.Security.Claims;
 
 namespace RasaApi.Controllers
@@ -17,12 +18,15 @@ namespace RasaApi.Controllers
     public class AlertsController : ControllerBase
     {
         private readonly RasaDbContext _context;
+        private readonly FirebaseNotificationService _firebaseNotificationService;
 
-
-        public AlertsController(RasaDbContext context)
+        public AlertsController(
+            RasaDbContext context,
+            FirebaseNotificationService firebaseNotificationService
+        )
         {
             _context = context;
-
+            _firebaseNotificationService = firebaseNotificationService;
         }
 
         /// <summary>
@@ -31,7 +35,7 @@ namespace RasaApi.Controllers
         /// <remarks>
         /// Endpoint ini digunakan oleh akun dengan role lansia untuk mengirim alert kepada keluarga yang sudah terhubung.
         /// Alert hanya dapat dikirim jika lansia sudah memiliki koneksi accepted dengan keluarga.
-        /// 
+        ///
         /// Nilai riskLevel yang diperbolehkan:
         ///
         /// - waspada
@@ -40,7 +44,6 @@ namespace RasaApi.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateAlert([FromBody] AlertRequest request)
         {
-            // 1. Ambil user id dan role dari token
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             string? role = User.FindFirstValue(ClaimTypes.Role);
 
@@ -52,7 +55,6 @@ namespace RasaApi.Controllers
                 });
             }
 
-            // 2. Hanya lansia yang boleh membuat alert
             if (role != "lansia")
             {
                 return BadRequest(new
@@ -61,7 +63,6 @@ namespace RasaApi.Controllers
                 });
             }
 
-            // 3. Validasi data
             if (string.IsNullOrWhiteSpace(request.AlertType) ||
                 string.IsNullOrWhiteSpace(request.Message) ||
                 string.IsNullOrWhiteSpace(request.RiskLevel))
@@ -85,9 +86,11 @@ namespace RasaApi.Controllers
 
             Guid elderlyId = Guid.Parse(userId);
 
-            // 4. Cari keluarga yang sudah terhubung accepted
-            var acceptedConnections = await _context.Set<Connection>()
-                .Where(c => c.ElderlyId == elderlyId && c.Status == "accepted")
+            var acceptedConnections = await _context.Connections
+                .Where(connection =>
+                    connection.ElderlyId == elderlyId &&
+                    connection.Status == "accepted"
+                )
                 .ToListAsync();
 
             if (acceptedConnections.Count == 0)
@@ -98,7 +101,6 @@ namespace RasaApi.Controllers
                 });
             }
 
-            // 5. Buat alert untuk semua keluarga yang terhubung
             List<Alert> alerts = acceptedConnections.Select(connection => new Alert
             {
                 Id = Guid.NewGuid(),
@@ -107,20 +109,65 @@ namespace RasaApi.Controllers
                 AlertType = alertType,
                 Message = request.Message.Trim(),
                 RiskLevel = riskLevel,
-                Latitude = request.Latitude,
-                Longitude = request.Longitude,
-                Status = "unread",
+                //Latitude = request.Latitude,
+                //Longitude = request.Longitude,
+                //Status = "unread",
                 CreatedAt = DateTime.UtcNow
             }).ToList();
 
-            _context.Set<Alert>().AddRange(alerts);
+            _context.Alerts.AddRange(alerts);
             await _context.SaveChangesAsync();
 
-            // 6. Response
+            bool firebaseNotificationSent = false;
+            int fcmTokenCount = 0;
+            string? firebaseNotificationError = null;
+
+            if (riskLevel == "darurat")
+            {
+                try
+                {
+                    var familyIds = acceptedConnections
+                        .Select(connection => connection.FamilyId)
+                        .ToList();
+
+                    var fcmTokens = await _context.NotificationTokens
+                        .Where(token => familyIds.Contains(token.UserId))
+                        .Where(token => !string.IsNullOrWhiteSpace(token.FcmToken))
+                        .Select(token => token.FcmToken)
+                        .Distinct()
+                        .ToListAsync();
+
+                    fcmTokenCount = fcmTokens.Count;
+
+                    if (fcmTokens.Count > 0)
+                    {
+                        var elderly = await _context.Users
+                            .FirstOrDefaultAsync(user => user.Id == elderlyId);
+
+                        string elderlyName = elderly?.Name ?? "Lansia";
+
+                        await _firebaseNotificationService.SendFallAlertNotificationAsync(
+                            fcmTokens,
+                            elderlyName
+                        );
+
+                        firebaseNotificationSent = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    firebaseNotificationError = ex.Message;
+                    Console.WriteLine($"Gagal mengirim Firebase notification: {ex.Message}");
+                }
+            }
+
             return Created("", new
             {
                 message = "Alert berhasil dikirim ke keluarga terhubung",
                 total_family_notified = alerts.Count,
+                firebase_notification_sent = firebaseNotificationSent,
+                fcm_token_count = fcmTokenCount,
+                firebase_notification_error = firebaseNotificationError,
                 alerts = alerts.Select(alert => new
                 {
                     id = alert.Id,
@@ -129,83 +176,15 @@ namespace RasaApi.Controllers
                     alert_type = alert.AlertType,
                     message = alert.Message,
                     risk_level = alert.RiskLevel,
-                    latitude = alert.Latitude,
-                    longitude = alert.Longitude,
-                    status = alert.Status,
+                    //latitude = alert.Latitude,
+                    //longitude = alert.Longitude,
+                    //status = alert.Status,
                     created_at = alert.CreatedAt,
                     created_date = FormatDate(alert.CreatedAt),
                     created_time = FormatTime(alert.CreatedAt)
                 })
             });
         }
-
-        //[HttpGet("~/api/elderlies/{elderlyId}/alerts")]
-        //public async Task<IActionResult> GetAlertsByElderly(Guid elderlyId)
-        //{
-        //    // 1. Ambil user id dan role dari token
-        //    string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        //    string? role = User.FindFirstValue(ClaimTypes.Role);
-
-        //    if (string.IsNullOrEmpty(userId))
-        //    {
-        //        return Unauthorized(new
-        //        {
-        //            message = "Token tidak valid"
-        //        });
-        //    }
-
-        //    // 2. Hanya keluarga yang boleh melihat alert
-        //    if (role != "keluarga")
-        //    {
-        //        return BadRequest(new
-        //        {
-        //            message = "Hanya akun keluarga yang dapat melihat alert"
-        //        });
-        //    }
-
-        //    Guid familyId = Guid.Parse(userId);
-
-        //    // 3. Cek apakah keluarga terhubung dengan lansia ini
-        //    bool isConnected = await _context.Set<Connection>().AnyAsync(c =>
-        //        c.ElderlyId == elderlyId &&
-        //        c.FamilyId == familyId &&
-        //        c.Status == "accepted"
-        //    );
-
-        //    if (!isConnected)
-        //    {
-        //        return Forbid();
-        //    }
-
-        //    // 4. Ambil daftar alert untuk keluarga ini dari lansia tersebut
-        //    var alerts = await _context.Set<Alert>()
-        //        .Where(a => a.ElderlyId == elderlyId && a.FamilyId == familyId)
-        //        .OrderByDescending(a => a.CreatedAt)
-        //        .Select(a => new
-        //        {
-        //            id = a.Id,
-        //            elderly_id = a.ElderlyId,
-        //            family_id = a.FamilyId,
-        //            alert_type = a.AlertType,
-        //            message = a.Message,
-        //            risk_level = a.RiskLevel,
-        //            latitude = a.Latitude,
-        //            longitude = a.Longitude,
-        //            status = a.Status,
-        //            created_at = a.CreatedAt,
-        //            created_date = FormatDate(a.CreatedAt),
-        //            created_time = FormatTime(a.CreatedAt)
-        //        })
-        //        .ToListAsync();
-
-        //    // 5. Response
-        //    return Ok(new
-        //    {
-        //        message = "Daftar alert berhasil diambil",
-        //        data = alerts
-        //    });
-        //}
-
 
         /// <summary>
         /// Mengambil daftar alert dari lansia tertentu (role keluarga)
@@ -217,7 +196,6 @@ namespace RasaApi.Controllers
         [HttpGet("~/api/elderlies/{elderlyId}/alerts")]
         public async Task<IActionResult> GetAlertsByElderly(Guid elderlyId)
         {
-            // 1. Ambil user id dan role dari token
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             string? role = User.FindFirstValue(ClaimTypes.Role);
 
@@ -229,7 +207,6 @@ namespace RasaApi.Controllers
                 });
             }
 
-            // 2. Hanya keluarga yang boleh melihat alert
             if (role != "keluarga")
             {
                 return BadRequest(new
@@ -240,11 +217,10 @@ namespace RasaApi.Controllers
 
             Guid familyId = Guid.Parse(userId);
 
-            // 3. Cek apakah keluarga terhubung dengan lansia ini
-            bool isConnected = await _context.Set<Connection>().AnyAsync(c =>
-                c.ElderlyId == elderlyId &&
-                c.FamilyId == familyId &&
-                c.Status == "accepted"
+            bool isConnected = await _context.Connections.AnyAsync(connection =>
+                connection.ElderlyId == elderlyId &&
+                connection.FamilyId == familyId &&
+                connection.Status == "accepted"
             );
 
             if (!isConnected)
@@ -252,46 +228,35 @@ namespace RasaApi.Controllers
                 return Forbid();
             }
 
-            // 4. Ambil data alert dari database dulu
-            var alertData = await _context.Set<Alert>()
-                .Where(a => a.ElderlyId == elderlyId && a.FamilyId == familyId)
-                .OrderByDescending(a => a.CreatedAt)
+            var alertData = await _context.Alerts
+                .Where(alert =>
+                    alert.ElderlyId == elderlyId &&
+                    alert.FamilyId == familyId
+                )
+                .OrderByDescending(alert => alert.CreatedAt)
                 .ToListAsync();
 
-            // 5. Baru format tanggal dan jam setelah data keluar dari database
-            var alerts = alertData.Select(a => new
+            var alerts = alertData.Select(alert => new
             {
-                id = a.Id,
-                elderly_id = a.ElderlyId,
-                family_id = a.FamilyId,
-                alert_type = a.AlertType,
-                message = a.Message,
-                risk_level = a.RiskLevel,
-                latitude = a.Latitude,
-                longitude = a.Longitude,
-                status = a.Status,
-                created_at = a.CreatedAt,
-                created_date = FormatDate(a.CreatedAt),
-                created_time = FormatTime(a.CreatedAt)
+                id = alert.Id,
+                elderly_id = alert.ElderlyId,
+                family_id = alert.FamilyId,
+                alert_type = alert.AlertType,
+                message = alert.Message,
+                risk_level = alert.RiskLevel,
+                //latitude = alert.Latitude,
+                //longitude = alert.Longitude,
+                //status = alert.Status,
+                created_at = alert.CreatedAt,
+                created_date = FormatDate(alert.CreatedAt),
+                created_time = FormatTime(alert.CreatedAt)
             }).ToList();
 
-            // 6. Response
             return Ok(new
             {
                 message = "Daftar alert berhasil diambil",
                 data = alerts
             });
-        }
-
-
-        private string FormatDate(DateTime dateTime)
-        {
-            return dateTime.ToLocalTime().ToString("dd-MM-yyyy");
-        }
-
-        private string FormatTime(DateTime dateTime)
-        {
-            return dateTime.ToLocalTime().ToString("HH:mm");
         }
 
         /// <summary>
@@ -306,93 +271,99 @@ namespace RasaApi.Controllers
         /// - read
         /// - unread
         /// </remarks>
-        [HttpPut("{alertId}")]
-        public async Task<IActionResult> UpdateAlertStatus(
-    Guid alertId,
-    [FromBody] UpdateAlertStatusRequest request)
+        //        [HttpPut("{alertId}")]
+        //        public async Task<IActionResult> UpdateAlertStatus(
+        //            Guid alertId,
+        //            [FromBody] UpdateAlertStatusRequest request
+        //        )
+        //        {
+        //            string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        //            string? role = User.FindFirstValue(ClaimTypes.Role);
+
+        //            if (string.IsNullOrEmpty(userId))
+        //            {
+        //                return Unauthorized(new
+        //                {
+        //                    message = "Token tidak valid"
+        //                });
+        //            }
+
+        //            if (role != "keluarga")
+        //            {
+        //                return BadRequest(new
+        //                {
+        //                    message = "Hanya akun keluarga yang dapat mengubah status alert"
+        //                });
+        //            }
+
+        //            if (string.IsNullOrWhiteSpace(request.Status))
+        //            {
+        //                return BadRequest(new
+        //                {
+        //                    message = "Status wajib diisi"
+        //                });
+        //            }
+
+        //            string status = request.Status.Trim().ToLower();
+
+        //            if (status != "read" && status != "unread")
+        //            {
+        //                return BadRequest(new
+        //                {
+        //                    message = "Status harus read atau unread"
+        //                });
+        //            }
+
+        //            Guid familyId = Guid.Parse(userId);
+
+        //            Alert? alert = await _context.Alerts
+        //                .FirstOrDefaultAsync(alert =>
+        //                    alert.Id == alertId &&
+        //                    alert.FamilyId == familyId
+        //                );
+
+        //            if (alert == null)
+        //            {
+        //                return NotFound(new
+        //                {
+        //                    message = "Alert tidak ditemukan"
+        //                });
+        //            }
+
+        //            //alert.Status = status;
+
+        //            await _context.SaveChangesAsync();
+
+        //            return Ok(new
+        //            {
+        //                message = "Status alert berhasil diubah",
+        //                alert = new
+        //                {
+        //                    id = alert.Id,
+        //                    elderly_id = alert.ElderlyId,
+        //                    family_id = alert.FamilyId,
+        //                    alert_type = alert.AlertType,
+        //                    message = alert.Message,
+        //                    risk_level = alert.RiskLevel,
+        //                    //latitude = alert.Latitude,
+        //                    //longitude = alert.Longitude,
+        //                    //status = alert.Status,
+        //                    created_at = alert.CreatedAt,
+        //                    created_date = FormatDate(alert.CreatedAt),
+        //                    created_time = FormatTime(alert.CreatedAt)
+        //                }
+        //            });
+        //        }
+
+        private string FormatDate(DateTime dateTime)
         {
-            // 1. Ambil user id dan role dari token
-            string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            string? role = User.FindFirstValue(ClaimTypes.Role);
-
-            if (string.IsNullOrEmpty(userId))
-            {
-                return Unauthorized(new
-                {
-                    message = "Token tidak valid"
-                });
-            }
-
-            // 2. Hanya keluarga yang boleh update status alert
-            if (role != "keluarga")
-            {
-                return BadRequest(new
-                {
-                    message = "Hanya akun keluarga yang dapat mengubah status alert"
-                });
-            }
-
-            // 3. Validasi status
-            if (string.IsNullOrWhiteSpace(request.Status))
-            {
-                return BadRequest(new
-                {
-                    message = "Status wajib diisi"
-                });
-            }
-
-            string status = request.Status.Trim().ToLower();
-
-            if (status != "read" && status != "unread")
-            {
-                return BadRequest(new
-                {
-                    message = "Status harus read atau unread"
-                });
-            }
-
-            Guid familyId = Guid.Parse(userId);
-
-            // 4. Cari alert milik keluarga yang sedang login
-            Alert? alert = await _context.Set<Alert>()
-                .FirstOrDefaultAsync(a =>
-                    a.Id == alertId &&
-                    a.FamilyId == familyId
-                );
-
-            if (alert == null)
-            {
-                return NotFound(new
-                {
-                    message = "Alert tidak ditemukan"
-                });
-            }
-
-            // 5. Update status alert
-            alert.Status = status;
-
-            await _context.SaveChangesAsync();
-
-            // 6. Response
-            return Ok(new
-            {
-                message = "Status alert berhasil diubah",
-                alert = new
-                {
-                    id = alert.Id,
-                    elderly_id = alert.ElderlyId,
-                    family_id = alert.FamilyId,
-                    alert_type = alert.AlertType,
-                    message = alert.Message,
-                    risk_level = alert.RiskLevel,
-                    latitude = alert.Latitude,
-                    longitude = alert.Longitude,
-                    status = alert.Status,
-                    created_at = alert.CreatedAt,
-                    created_date = FormatDate(alert.CreatedAt),
-                    created_time = FormatTime(alert.CreatedAt)
-                }
-            });
+            return dateTime.ToLocalTime().ToString("dd-MM-yyyy");
         }
+
+        private string FormatTime(DateTime dateTime)
+        {
+            return dateTime.ToLocalTime().ToString("HH:mm");
+        }
+        //    }
     }
 }

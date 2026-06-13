@@ -182,7 +182,7 @@ namespace RasaApi.Controllers
                     elderly_name = elderly.Name,
                     elderly_email = elderly.Email,
                     elderly_phone = elderly.Phone,
-                    elderly_photo_url = elderly.PhotoUrl,
+                    elderly_photo_url = elderly.IsPhotoDeleted ? null : elderly.PhotoUrl,
                     status = connection.Status,
                     created_at = connection.CreatedAt
                 }
@@ -394,7 +394,7 @@ namespace RasaApi.Controllers
                     elderly_name = elderly.Name,
                     elderly_email = elderly.Email,
                     elderly_phone = elderly.Phone,
-                    elderly_photo_url = elderly.PhotoUrl,
+                    elderly_photo_url = elderly.IsPhotoDeleted ? null : elderly.PhotoUrl,
                     status = connection.Status,
                     connected_at = connection.UpdatedAt
                 }
@@ -454,7 +454,7 @@ namespace RasaApi.Controllers
                     family_name = family.Name,
                     family_email = family.Email,
                     family_phone = family.Phone,
-                    family_photo_url = family.PhotoUrl,
+                    family_photo_url = family.IsPhotoDeleted ? null : family.PhotoUrl,
                     status = connection.Status,
                     connected_at = connection.UpdatedAt
                 }

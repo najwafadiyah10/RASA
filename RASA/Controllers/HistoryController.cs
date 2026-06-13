@@ -28,59 +28,59 @@ namespace RasaApi.Controllers
         /// <remarks>
         /// Endpoint ini digunakan oleh akun dengan role keluarga untuk melihat riwayat notifikasi alert yang diterima.
         /// </remarks>
-        [HttpGet("alerts")]
-        public async Task<IActionResult> GetAlertHistory(
-            [FromQuery] DateTime? startDate,
-            [FromQuery] DateTime? endDate)
-        {
-            // Ambil user id dan role dari token
-            string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            string? role = User.FindFirstValue(ClaimTypes.Role);
+        //[HttpGet("alerts")]
+        //public async Task<IActionResult> GetAlertHistory(
+        //    [FromQuery] DateTime? startDate,
+        //    [FromQuery] DateTime? endDate)
+        //{
+        //    // Ambil user id dan role dari token
+        //    string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        //    string? role = User.FindFirstValue(ClaimTypes.Role);
 
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized(new { message = "Token tidak valid" });
+        //    if (string.IsNullOrEmpty(userId))
+        //        return Unauthorized(new { message = "Token tidak valid" });
 
-            if (role != "keluarga")
-                return Forbid();
+        //    if (role != "keluarga")
+        //        return Forbid();
 
-            Guid familyId = Guid.Parse(userId);
+        //    Guid familyId = Guid.Parse(userId);
 
-            // Ambil semua alert keluarga dari database
-            var query = _context.Alerts
-                .Where(a => a.FamilyId == familyId)
-                .OrderByDescending(a => a.CreatedAt)
-                .AsQueryable();
+        //    // Ambil semua alert keluarga dari database
+        //    var query = _context.Alerts
+        //        .Where(a => a.FamilyId == familyId)
+        //        .OrderByDescending(a => a.CreatedAt)
+        //        .AsQueryable();
 
-            // Filter tanggal jika ada
-            if (startDate.HasValue)
-                query = query.Where(a => a.CreatedAt >= startDate.Value);
+        //    // Filter tanggal jika ada
+        //    if (startDate.HasValue)
+        //        query = query.Where(a => a.CreatedAt >= startDate.Value);
 
-            if (endDate.HasValue)
-                query = query.Where(a => a.CreatedAt <= endDate.Value);
+        //    if (endDate.HasValue)
+        //        query = query.Where(a => a.CreatedAt <= endDate.Value);
 
-            var alertData = await query.ToListAsync();
+        //    var alertData = await query.ToListAsync();
 
-            // Format response
-            var history = alertData.Select(a => new
-            {
-                id = a.Id,
-                elderly_id = a.ElderlyId,
-                alert_type = a.AlertType,
-                message = a.Message,
-                risk_level = a.RiskLevel,
-                status = a.Status,
-                created_at = a.CreatedAt,
-                created_date = a.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy"),
-                created_time = a.CreatedAt.ToLocalTime().ToString("HH:mm")
-            }).ToList();
+        //    // Format response
+        //    var history = alertData.Select(a => new
+        //    {
+        //        id = a.Id,
+        //        elderly_id = a.ElderlyId,
+        //        alert_type = a.AlertType,
+        //        message = a.Message,
+        //        risk_level = a.RiskLevel,
+        //        //status = a.Status,
+        //        created_at = a.CreatedAt,
+        //        created_date = a.CreatedAt.ToLocalTime().ToString("dd-MM-yyyy"),
+        //        created_time = a.CreatedAt.ToLocalTime().ToString("HH:mm")
+        //    }).ToList();
 
-            return Ok(new
-            {
-                message = "Riwayat notifikasi berhasil diambil",
-                data = history
-            });
+        //    return Ok(new
+        //    {
+        //        message = "Riwayat notifikasi berhasil diambil",
+        //        data = history
+        //    });
 
-        }
+        //}
 
         /// <summary>
         /// Menghapus riwayat notifikasi alert secara soft delete (role keluarga)

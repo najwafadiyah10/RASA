@@ -22,9 +22,9 @@ namespace RasaApi.Models
         [Column("phone")]
         public string Phone { get; set; } = string.Empty;
 
-        [Required]
+        //[Required]
         [Column("password_hash")]
-        public string? PasswordHash { get; set; }
+        public string? PasswordHash { get; set; } 
 
         [Required]
         [Column("role")]

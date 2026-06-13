@@ -185,7 +185,7 @@ namespace RasaApi.Controllers
                     alert_type = latestAlert.AlertType,
                     message = latestAlert.Message,
                     risk_level = latestAlert.RiskLevel,
-                    status = latestAlert.Status,
+                    //status = latestAlert.Status,
                     created_at = latestAlert.CreatedAt,
                     created_date = FormatDate(latestAlert.CreatedAt),
                     created_time = FormatTime(latestAlert.CreatedAt)
@@ -321,12 +321,12 @@ namespace RasaApi.Controllers
                     a.FamilyId == familyId
                 );
 
-            int unreadAlerts = await _context.Set<Alert>()
-                .CountAsync(a =>
-                    a.ElderlyId == elderlyId &&
-                    a.FamilyId == familyId &&
-                    a.Status == "unread"
-                );
+            //int unreadAlerts = await _context.Set<Alert>()
+            //    .CountAsync(a =>
+            //        a.ElderlyId == elderlyId &&
+            //        a.FamilyId == familyId &&
+            //        //a.Status == "unread"
+            //    );
 
             int totalEmergencyAlerts = await _context.Set<Alert>()
                 .CountAsync(a =>
@@ -408,9 +408,9 @@ namespace RasaApi.Controllers
                     alert_type = latestAlert.AlertType,
                     message = latestAlert.Message,
                     risk_level = latestAlert.RiskLevel,
-                    latitude = latestAlert.Latitude,
-                    longitude = latestAlert.Longitude,
-                    status = latestAlert.Status,
+                    //latitude = latestAlert.Latitude,
+                    //longitude = latestAlert.Longitude,
+                    //status = latestAlert.Status,
                     created_at = latestAlert.CreatedAt,
                     created_date = FormatDate(latestAlert.CreatedAt),
                     created_time = FormatTime(latestAlert.CreatedAt)
@@ -420,7 +420,7 @@ namespace RasaApi.Controllers
                 {
                     connection_status = "accepted",
                     total_alerts = totalAlerts,
-                    unread_alerts = unreadAlerts,
+                    //unread_alerts = unreadAlerts,
                     total_emergency_alerts = totalEmergencyAlerts
                 }
             });

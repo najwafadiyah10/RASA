@@ -30,15 +30,15 @@ namespace RasaApi.Models
         [Column("risk_level")]
         public string RiskLevel { get; set; } = "waspada";
 
-        [Column("latitude")]
-        public double? Latitude { get; set; }
+        //[Column("latitude")]
+        //public double? Latitude { get; set; }
 
-        [Column("longitude")]
-        public double? Longitude { get; set; }
+        //[Column("longitude")]
+        //public double? Longitude { get; set; }
 
-        [Required]
-        [Column("status")]
-        public string Status { get; set; } = "unread";
+        //[Required]
+        //[Column("status")]
+        //public string Status { get; set; } = "unread";
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

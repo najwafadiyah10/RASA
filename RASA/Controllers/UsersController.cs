@@ -98,12 +98,11 @@ namespace RasaApi.Controllers
                 });
             }
 
-            if (string.IsNullOrWhiteSpace(request.Name) ||
-                string.IsNullOrWhiteSpace(request.Phone))
+            if (string.IsNullOrWhiteSpace(request.Name))
             {
                 return BadRequest(new
                 {
-                    message = "Nama dan nomor HP wajib diisi"
+                    message = "Nama wajib diisi"
                 });
             }
 
@@ -135,7 +134,7 @@ namespace RasaApi.Controllers
 
             user.Name = request.Name.Trim();
             //user.Email = email;
-            user.Phone = request.Phone.Trim();
+            //user.Phone = request.Phone.Trim();
 
             await _context.SaveChangesAsync();
 

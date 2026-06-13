@@ -99,17 +99,16 @@ namespace RasaApi.Controllers
             }
 
             if (string.IsNullOrWhiteSpace(request.Name) ||
-                string.IsNullOrWhiteSpace(request.Email) ||
                 string.IsNullOrWhiteSpace(request.Phone))
             {
                 return BadRequest(new
                 {
-                    message = "Nama, email, dan nomor HP wajib diisi"
+                    message = "Nama dan nomor HP wajib diisi"
                 });
             }
 
             Guid id = Guid.Parse(userId);
-            string email = request.Email.Trim().ToLower();
+            //string email = request.Email.Trim().ToLower();
 
             User? user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
@@ -121,21 +120,21 @@ namespace RasaApi.Controllers
                 });
             }
 
-            bool emailUsedByOtherUser = await _context.Users.AnyAsync(u =>
-                u.Email == email &&
-                u.Id != id
-            );
+            //bool emailUsedByOtherUser = await _context.Users.AnyAsync(u =>
+            //    u.Email == email &&
+            //    u.Id != id
+            //);
 
-            if (emailUsedByOtherUser)
-            {
-                return Conflict(new
-                {
-                    message = "Email sudah digunakan oleh akun lain"
-                });
-            }
+            //if (emailUsedByOtherUser)
+            //{
+            //    return Conflict(new
+            //    {
+            //        message = "Email sudah digunakan oleh akun lain"
+            //    });
+            //}
 
             user.Name = request.Name.Trim();
-            user.Email = email;
+            //user.Email = email;
             user.Phone = request.Phone.Trim();
 
             await _context.SaveChangesAsync();

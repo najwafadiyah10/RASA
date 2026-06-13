@@ -228,13 +228,22 @@ namespace RasaApi.Controllers
                 return Forbid();
             }
 
+            //var alertData = await _context.Alerts
+            //    .Where(alert =>
+            //        alert.ElderlyId == elderlyId &&
+            //        alert.FamilyId == familyId
+            //    )
+            //    .OrderByDescending(alert => alert.CreatedAt)
+            //    .ToListAsync();
+
             var alertData = await _context.Alerts
-                .Where(alert =>
-                    alert.ElderlyId == elderlyId &&
-                    alert.FamilyId == familyId
-                )
-                .OrderByDescending(alert => alert.CreatedAt)
-                .ToListAsync();
+            .Where(alert =>
+                alert.ElderlyId == elderlyId &&
+                alert.FamilyId == familyId &&
+                !alert.IsDeleted
+            )
+            .OrderByDescending(alert => alert.CreatedAt)
+            .ToListAsync();
 
             var alerts = alertData.Select(alert => new
             {
